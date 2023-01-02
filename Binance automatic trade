@@ -1,0 +1,64 @@
+import time
+import requests
+import binance
+import tkinter as tk
+from tkinter import simpledialog
+
+# Set your Binance access keys and IDs
+api_key = "YOUR_API_KEY"
+api_secret = "YOUR_API_SECRET"
+
+# Create an instance of the Binance API
+client = binance.Client(api_key, api_secret)
+
+# Set the ID of the user whose positions you want to track
+user_id = "3A4E740B916DBFD9BDA61B76B919E232"
+
+# Initialize a variable to store previously seen positions
+previous_positions = []
+
+# Create a dialog window that asks the user if they want to enter a default trade amount
+root = tk.Tk()
+root.withdraw()
+default_qty = simpledialog.askstring("Default Trade Amount", "Do you want to enter a default trade amount as a percentage of your USDT balance?", parent=root)
+
+while True:
+  # Get the user's real-time positions
+  positions = client.futures_activity.user(user_id)
+
+  # Check if a new position has been opened
+  for position in positions:
+    if position not in previous_positions:
+      # Retrieve details of the opened position
+      symbol = position['symbol']
+      side = position['side']
+      price = position['price']
+      leverage = position['leverage']
+
+      # If the user has specified a default trade amount as a percentage,
+      # calculate the amount in USDT using your own wallet balance
+      if default_qty:
+        # Retrieve your own wallet balance
+        balance = client.futures_wallet().get('USDT')['balance']
+        # Calculate the trade amount in USDT based on the specified percentage
+        qty = float(balance) * float(default_qty) / 100
+      else:
+        # Otherwise, use the user's position amount
+        qty = position['qty']
+
+      # Place an order to open a position on your account with the user's leverage
+        order = client.futures_order(
+        symbol=symbol,
+        side=side,
+        qty=qty,
+        price=price,
+        leverage=leverage,
+        positionSide='BOTH'
+      )
+      print(f"Position opened on {symbol} with order ID {order['orderId']}")
+
+  # Update the list of previously seen positions
+  previous_positions = positions
+
+  # Wait a minute before checking positions again
+  time.sleep(60)
